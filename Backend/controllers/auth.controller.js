@@ -1,5 +1,5 @@
 import User from "../models/user.model.js";
-
+import jwt from "jsonwebtoken";
 
 // cookie configurations
 const isProduction = process.env.NODE_ENV === "production";
@@ -8,6 +8,7 @@ const options = {
   secure: isProduction,
   sameSite: isProduction ? "None" : "Lax",
   path: "/",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 // controller to generate access & refresh token
@@ -18,8 +19,8 @@ const generateAccessRefreshToken = async (userId) => {
       throw new Error("Couldn't find an account associated with that ID.");
     }
 
-    const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
+    const accessToken = await user.generateAccessToken();
+    const refreshToken = await user.generateRefreshToken();
 
     if (!accessToken || !refreshToken) {
       throw new Error(
@@ -27,12 +28,68 @@ const generateAccessRefreshToken = async (userId) => {
       );
     }
 
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
     return { accessToken, refreshToken };
   } catch (error) {
-    console.log("Token Generation error:".error);
+    console.log("Token Generation error:", error);
     throw new Error(
       error.message || "An unexpected error occurred during authentication.",
     );
+  }
+};
+
+// controller to refresh access token after expiry
+const refreshAccessToken = async (req, res) => {
+  try {
+    const incomingRefreshToken = req.cookies.refreshToken;
+    if (!incomingRefreshToken) {
+      return res.status(401).json({
+        message: "Your session has expired. Please log in again.",
+        success: false,
+      });
+    }
+
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET,
+    );
+
+    const user = await User.findById(decodedToken._id);
+    if (!user) {
+      return res.status(401).json({
+        message: "Account not found. Please register or log in.",
+        success: false,
+      });
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      return res.status(401).json({
+        message: "Session is no longer valid. Please sign in again.",
+        success: false,
+      });
+    }
+
+    const { accessToken, refreshToken } = await generateAccessRefreshToken(
+      user._id,
+    );
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({
+        message: "Session renewed successfully.",
+        accessToken,
+        success: true,
+      });
+  } catch (error) {
+    console.error("Auth Refresh Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while updating your session.",
+    });
   }
 };
 
@@ -48,7 +105,7 @@ const registerUser = async (req, res) => {
       });
     }
 
-    const userExist = await User.find({ email });
+    const userExist = await User.findOne({ email });
     if (userExist) {
       return res.status(400).json({
         message: "User already exists With this email",
@@ -62,6 +119,8 @@ const registerUser = async (req, res) => {
       password,
     });
 
+    const createdUser = await User.findById(user._id).select("-password -refreshToken");
+
     const { accessToken, refreshToken } = await generateAccessRefreshToken(
       user._id,
     );
@@ -72,7 +131,7 @@ const registerUser = async (req, res) => {
       .cookie("refreshToken", refreshToken, options)
       .json({
         message: "Welcome! Your account has been created successfully.",
-        user,
+        createdUser,
         success: true,
       });
   } catch (error) {
@@ -95,9 +154,9 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.json({
+      return res.status(401).json({
         message: "Invalid email or password. Please try again",
         success: false,
       });
@@ -105,7 +164,7 @@ const loginUser = async (req, res) => {
 
     const isPasswordCorrect = await user.matchPassword(password);
     if (!isPasswordCorrect) {
-      return res.json({
+      return res.status(401).json({
         message: "Invalid Credentials",
         success: false,
       });
@@ -128,7 +187,6 @@ const loginUser = async (req, res) => {
         user: loggedInUser,
         success: true,
       });
-
   } catch (error) {
     console.error("Login Error:", error);
     return res.status(500).json({
@@ -138,4 +196,34 @@ const loginUser = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser };
+// controller to logout user
+const logoutUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "We couldn't find your account information.",
+      });
+    }
+
+    user.refreshToken = null;
+    await user.save({ validateBeforeSave: false });
+    return res
+      .status(200)
+      .clearCookie("accessToken", options)
+      .clearCookie("refreshToken", options)
+      .json({
+        success: true,
+        message: "You have been logged out successfully. See you soon!",
+      });
+  } catch (error) {
+    console.error("Error logging out user:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred during logout. Please try again.",
+    });
+  }
+};
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };

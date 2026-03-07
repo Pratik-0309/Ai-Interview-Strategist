@@ -119,7 +119,9 @@ const registerUser = async (req, res) => {
       password,
     });
 
-    const createdUser = await User.findById(user._id).select("-password -refreshToken");
+    const createdUser = await User.findById(user._id).select(
+      "-password -refreshToken",
+    );
 
     const { accessToken, refreshToken } = await generateAccessRefreshToken(
       user._id,
@@ -196,6 +198,30 @@ const loginUser = async (req, res) => {
   }
 };
 
+// controller to get user details
+const userProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password -refreshToken");
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "User Details fetch Successfully",
+      user,
+      success: true,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 // controller to logout user
 const logoutUser = async (req, res) => {
   try {
@@ -226,4 +252,4 @@ const logoutUser = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+export { registerUser, loginUser, userProfile, logoutUser, refreshAccessToken };

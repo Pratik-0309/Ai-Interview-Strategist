@@ -1,13 +1,29 @@
 import "../auth.form.scss";
-import {useNavigate, Link} from "react-router";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth.js";
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { loading, handleLogin } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-    const navigate = useNavigate();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await handleLogin({ email, password });
+    navigate("/");
+    setEmail("");
+    setPassword("");
+  };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-    };
+  if (loading) {
+    return (
+      <main>
+        <h1>Loading ....</h1>
+      </main>
+    );
+  }
 
   return (
     <main>
@@ -17,7 +33,11 @@ const Login = () => {
           <div className="input-group">
             <label htmlFor="email">Email</label>
             <input
-              type="text"
+              onChange={(e) => {
+                setEmail(e.target.value);
+              }}
+              value={email}
+              type="email"
               id="email"
               name="email"
               placeholder="Enter Email Address"
@@ -26,6 +46,10 @@ const Login = () => {
           <div className="input-group">
             <label htmlFor="password">Password</label>
             <input
+              onChange={(e) => {
+                setPassword(e.target.value);
+              }}
+              value={password}
               type="password"
               id="password"
               name="password"
@@ -34,8 +58,9 @@ const Login = () => {
           </div>
           <button className="button primary-button">Login</button>
         </form>
-        <p>Don't have an Account? <Link to={"/register"}>Register</Link></p>
-
+        <p>
+          Don't have an Account? <Link to={"/register"}>Register</Link>
+        </p>
       </div>
     </main>
   );

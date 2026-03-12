@@ -73,7 +73,7 @@ const preparationPlanSchema = new mongoose.Schema({
     required: [true, "Day is required"],
   },
   focus: {
-    type: Number,
+    type: String,
     required: [true, "Focus is required"],
   },
   tasks: [
@@ -106,7 +106,7 @@ const interviewReportSchema = new mongoose.Schema(
       max: 100,
     },
     technicalQuestions: [technicalQuestionsSchema],
-    behavioralQuestion: [behavioralQuestionsSchema],
+    behavioralQuestions: [behavioralQuestionsSchema],
     skillGaps: [skillGapSchema],
     preparationPlan: [preparationPlanSchema],
   },

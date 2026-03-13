@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from "dotenv"
+dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY);
 
@@ -59,8 +61,6 @@ const generateInterviewReport = async ({ resume, selfDescription, jobDescription
     });
 
     const result = response.response.text();
-    console.log(result);
-
     return JSON.parse(result);
 
   } catch (error) {

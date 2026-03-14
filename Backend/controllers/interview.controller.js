@@ -25,14 +25,13 @@ const generateInterviewReportController = async (req, res) => {
       data: new Uint8Array(fileBuffer),
     }).promise;
 
-    
     let resumeContent = "";
 
     for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);  // .getPage() loads one page at time
+      const page = await pdf.getPage(i); // .getPage() loads one page at time
       const textContent = await page.getTextContent(); // .getTextContent() extract text from page
 
-      const pageText = textContent.items.map(item => item.str).join(" ");
+      const pageText = textContent.items.map((item) => item.str).join(" ");
       resumeContent += pageText + "\n";
     }
 
@@ -57,6 +56,7 @@ const generateInterviewReportController = async (req, res) => {
       behavioralQuestions: interviewReportByAi.behavioralQuestions,
       skillGaps: interviewReportByAi.skillGaps,
       preparationPlan: interviewReportByAi.preparationPlan,
+      title: interviewReportByAi.title,
     });
 
     res.status(201).json({
@@ -64,7 +64,6 @@ const generateInterviewReportController = async (req, res) => {
       success: true,
       interviewReport,
     });
-
   } catch (error) {
     console.log(error);
     res.status(500).json({
@@ -74,4 +73,77 @@ const generateInterviewReportController = async (req, res) => {
   }
 };
 
-export { generateInterviewReportController };
+const getInterviewReportById = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+
+    const interviewReport = await interviewReportModel.findOne({
+      _id: interviewId,
+      user: req.user._id,
+    });
+
+    if (!interviewReport) {
+      return res.status(404).json({
+        message: "Interview report not found",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Interview report fetched successfully",
+      interviewReport,
+      success: true,
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      message: error.message,
+      success: false,
+    });
+  }
+};
+
+const getUserInterviewReport = async (req, res) => {
+  try {
+
+    const userId = req.user._id;
+
+    if (!userId) {
+      return res.status(403).json({
+        message: "User is not logged in",
+        success: false,
+      });
+    }
+
+    const interviewReports = await interviewReportModel
+      .find({ user: userId })
+      .sort({ createdAt: -1 })
+      .select(
+        "-resume -jobDescription -selfDescription -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan -__v"
+      );
+
+    return res.status(200).json({
+      message: "Interview reports fetched successfully",
+      interviewReports,
+      success: true,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    return res.status(500).json({
+      message: error.message,
+      success: false,
+    });
+
+  }
+};
+
+export {
+  generateInterviewReportController,
+  getInterviewReportById,
+  getUserInterviewReport,
+};

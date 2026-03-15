@@ -30,12 +30,12 @@ const generateInterviewReport = async ({ resume, selfDescription, jobDescription
 
       1. "matchScore": A number (0-100) representing how well the candidate's skills align with the job requirements.
       
-      2. "technicalQuestions": An array of objects. Each object MUST contain:
+      2. "technicalQuestions":(7 Objects) An array of objects. Each object MUST contain:
          - "question": A specific technical question tailored to the candidate's MERN stack experience and the job role.
          - "intention": An explanation of why an interviewer would ask this (e.g., "To evaluate understanding of JWT middleware").
          - "answer": A comprehensive guide on how the candidate should answer, including key concepts (e.g., "Mention bcrypt for hashing and salt rounds").
 
-      3. "behavioralQuestions": An array of objects. Each object MUST contain:
+      3. "behavioralQuestions": (7 Objects) An array of objects. Each object MUST contain:
          - "question": A soft-skills or situational question.
          - "intention": The personality trait being assessed (e.g., "To evaluate conflict resolution in a team").
          - "answer": A suggested response structure using the STAR method (Situation, Task, Action, Result).
@@ -44,10 +44,13 @@ const generateInterviewReport = async ({ resume, selfDescription, jobDescription
          - "skill": The name of the missing or weak skill (e.g., "Docker" or "System Design").
          - "severity": Must be exactly one of: "low", "medium", or "high", based on its importance in the job description.
 
-      5. "preparationPlan": A 5-day step-by-step roadmap array:
-         - "day": The day number (1, 2, 3, 4, 5).
+      5. "preparationPlan": A 7-day step-by-step roadmap array:
+         - "day": The day number (1, 2, 3, 4, 5, 6, 7).
          - "focus": The main topic for that day (e.g., "Advanced Database Queries").
          - "tasks": An array of specific strings describing tasks to complete (e.g., "Practice aggregation pipelines in MongoDB").
+
+      6. "title": The job role for which the interview preparation report is generated (e.g., "MERN Stack Developer", "AI/ML Engineer").
+      - It should be a string type
 
       ### CRITICAL INSTRUCTION:
       Return ONLY valid JSON. Do not include any text before or after the JSON. Do not use markdown code blocks like \`\`\`json.

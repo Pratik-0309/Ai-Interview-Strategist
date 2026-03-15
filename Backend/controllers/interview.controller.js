@@ -9,36 +9,35 @@ const generateInterviewReportController = async (req, res) => {
   try {
     const userId = req.user._id;
     const resumeFile = req.file;
+    const { selfDescription, jobDescription } = req.body;
 
-    if (!resumeFile) {
-      return res.status(400).json({
-        message: "No file uploaded",
-      });
+    if (!jobDescription) {
+      return res.status(400).json({ message: "Job description is required" });
     }
-
-    // Read pdf file & return binary data(buffer)
-    const fileBuffer = fs.readFileSync(resumeFile.path);
-
-    // pdfjsLib.getDocument() loads the PDF
-    // new Uint8Array(fileBuffer) converts the buffer to the correct format
-    const pdf = await pdfjsLib.getDocument({
-      data: new Uint8Array(fileBuffer),
-    }).promise;
 
     let resumeContent = "";
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i); // .getPage() loads one page at time
-      const textContent = await page.getTextContent(); // .getTextContent() extract text from page
+    if (resumeFile) {
+      // Read pdf file & return binary data(buffer)
+      const fileBuffer = fs.readFileSync(resumeFile.path);
 
-      const pageText = textContent.items.map((item) => item.str).join(" ");
-      resumeContent += pageText + "\n";
+      // pdfjsLib.getDocument() loads the PDF
+      // new Uint8Array(fileBuffer) converts the buffer to the correct format
+      const pdf = await pdfjsLib.getDocument({
+        data: new Uint8Array(fileBuffer),
+      }).promise;
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i); // .getPage() loads one page at time
+        const textContent = await page.getTextContent(); // .getTextContent() extract text from page
+
+        const pageText = textContent.items.map((item) => item.str).join(" ");
+        resumeContent += pageText + "\n";
+      }
+
+      const filePath = path.join(process.cwd(), resumeFile.path);
+      await fs.promises.unlink(filePath);
     }
-
-    const filePath = path.join(process.cwd(), resumeFile.path);
-    await fs.promises.unlink(filePath);
-
-    const { selfDescription, jobDescription } = req.body;
 
     const interviewReportByAi = await generateInterviewReport({
       resume: resumeContent,
@@ -94,7 +93,6 @@ const getInterviewReportById = async (req, res) => {
       interviewReport,
       success: true,
     });
-
   } catch (error) {
     console.log(error);
 
@@ -107,7 +105,6 @@ const getInterviewReportById = async (req, res) => {
 
 const getUserInterviewReport = async (req, res) => {
   try {
-
     const userId = req.user._id;
 
     if (!userId) {
@@ -121,7 +118,7 @@ const getUserInterviewReport = async (req, res) => {
       .find({ user: userId })
       .sort({ createdAt: -1 })
       .select(
-        "-resume -jobDescription -selfDescription -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan -__v"
+        "-resume -jobDescription -selfDescription -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan -__v",
       );
 
     return res.status(200).json({
@@ -129,16 +126,13 @@ const getUserInterviewReport = async (req, res) => {
       interviewReports,
       success: true,
     });
-
   } catch (error) {
-
     console.log(error);
 
     return res.status(500).json({
       message: error.message,
       success: false,
     });
-
   }
 };
 

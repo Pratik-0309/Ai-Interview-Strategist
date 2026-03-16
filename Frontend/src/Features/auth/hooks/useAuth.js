@@ -13,6 +13,7 @@ export const useAuth = () => {
       setUser(data.user);
       toast.success(data.message);
     } catch (error) {
+      toast.error("Login Failed");
     } finally {
       setLoading(false);
     }
@@ -25,7 +26,7 @@ export const useAuth = () => {
       setUser(data.createdUser);
       toast.success(data.message);
     } catch (error) {
-      
+      toast.error("Registration failed");
     } finally {
       setLoading(false);
     }
@@ -36,22 +37,32 @@ export const useAuth = () => {
     try {
       const data = await logout();
       setUser(null);
-
+      toast.success("Logged out successfully");
     } catch (error) {
+      toast.error("Logout Failed");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(()=> {
-    const checkAuth = async() => {
-      const data = await profile();
-      setUser(data.user);
-      setLoading(false);
-    }
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const data = await profile();
+        if (data?.user) {
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    checkAuth(); 
-  },[])
+    checkAuth();
+  }, []);
 
   return { user, loading, handleLogin, handleLogout, handleRegister };
 };

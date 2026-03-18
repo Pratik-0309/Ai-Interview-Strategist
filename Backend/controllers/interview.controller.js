@@ -3,6 +3,7 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import path from "path";
 
 import generateInterviewReport from "../services/ai.service.js";
+import { generateResumePdf } from "../services/ai.service.js";
 import interviewReportModel from "../models/interviewReport.model.js";
 
 const generateInterviewReportController = async (req, res) => {
@@ -136,8 +137,41 @@ const getUserInterviewReport = async (req, res) => {
   }
 };
 
+const generateResumePdfController = async(req,res) => {
+  try {
+    const {interviewReportId} = req.params;
+    const interviewReport = await interviewReportModel.findOne({_id: interviewReportId });
+
+    if(!interviewReport){
+      return res.status(404).json({
+        message: "Interview not found",
+        success: false
+      })
+    }
+
+    const {resume, jobDescription, selfDescription} = interviewReport;
+
+    const pdfBuffer = await generateResumePdf({ resume, jobDescription, selfDescription});
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`
+    })
+
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: error.message,
+      success: false,
+    })
+  }
+}
+
 export {
   generateInterviewReportController,
   getInterviewReportById,
   getUserInterviewReport,
+  generateResumePdfController
 };

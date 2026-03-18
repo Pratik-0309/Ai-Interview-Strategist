@@ -2,6 +2,7 @@ import {
   generateInterviewReport,
   getInterviewReportById,
   getUserInterviewReport,
+  generateResumePdf,
 } from "../services/interview.api.js";
 import { useContext } from "react";
 import { InterviewContext } from "../interview.context.jsx";
@@ -70,6 +71,33 @@ export const useInterview = () => {
     }
   };
 
+  const getResumePdf = async (interviewReportId) => {
+    setLoading(true);
+    try {
+      const blobData = await generateResumePdf({ interviewReportId });
+
+      const url = window.URL.createObjectURL(
+        new Blob([blobData], { type: "application/pdf" }),
+      );
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `resume_${interviewReportId}.pdf`);
+
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Resume Downloaded Successfully")
+    } catch (error) {
+      console.log(error);
+      toast.error("Failed to download resume");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     report,
@@ -77,5 +105,6 @@ export const useInterview = () => {
     generateReport,
     getReportById,
     getReports,
+    getResumePdf,
   };
 };

@@ -8,7 +8,11 @@ const generateInterviewReport = async({ resumeFile, selfDescription, jobDescript
         formData.append("jobDescription", jobDescription);
         formData.append("resume", resumeFile);
 
-        const response = await axiosInstance.post("/api/interview", formData);
+        const response = await axiosInstance.post("/api/interview", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            }
+        });
 
         return response.data;
     } catch (error) {
@@ -37,4 +41,16 @@ const getUserInterviewReport = async() => {
     }
 }
 
-export {generateInterviewReport, getInterviewReportById, getUserInterviewReport};
+const generateResumePdf = async({interviewReportId}) => {
+    try {
+        const response = await axiosInstance.post(`/api/interview/resume/pdf/${interviewReportId}`, {} , {
+            responseType: 'blob'
+        }) 
+
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+} 
+
+export {generateInterviewReport, getInterviewReportById, getUserInterviewReport, generateResumePdf};

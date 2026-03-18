@@ -1,5 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import dotenv from "dotenv"
+import dotenv, { config } from "dotenv"
+import puppeteer from "puppeteer";
+import z from "zod";
+import {zodToJsonSchema} from "zod-to-json-schema";
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY);
@@ -8,6 +11,19 @@ const model = genAI.getGenerativeModel({
   model: "gemini-3.1-flash-lite-preview", 
 });
 
+
+const extractJson = (text) => {
+  try {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start === -1 || end === -1) throw new Error("No JSON found in response");
+    const jsonStr = text.substring(start, end + 1);
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error("JSON Extraction Failed. Raw text:", text);
+    throw new Error("Failed to parse AI response as JSON.");
+  }
+};
 
 const generateInterviewReport = async ({ resume, selfDescription, jobDescription }) => {
   try {
@@ -63,13 +79,152 @@ const generateInterviewReport = async ({ resume, selfDescription, jobDescription
       },
     });
 
-    const result = response.response.text();
-    return JSON.parse(result);
+    return extractJson(response.response.text());
 
   } catch (error) {
     console.error("Error generating interview report:", error);
     throw error;
   }
 };
+
+
+const getGeminiSchema = (zodObj) => {
+    const jsonSchema = zodToJsonSchema(zodObj);
+    delete jsonSchema.$schema;
+    return jsonSchema;
+};
+
+export const generatePdfFromHtml = async (htmlContent) => {
+    try {
+        const browser = await puppeteer.launch({ headless: "new" });
+        const page = await browser.newPage();
+        // Set content and wait for it to render
+        await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+        
+        const pdfBuffer = await page.pdf({ 
+            format: "A4",
+            printBackground: true,
+            margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
+        });
+
+        await browser.close();
+        return pdfBuffer;
+    } catch (error) {
+        console.error("Puppeteer Error:", error);
+        throw error;
+    }
+};
+
+export const generateResumePdf = async ({ resume, selfDescription, jobDescription }) => {
+    try {
+        const resumePdfSchema = {
+            type: "object",
+            properties: {
+                html: {
+                    type: "string",
+                    description: "A complete, valid HTML5 document string including <head>, <style>, and <body> tags."
+                }
+            },
+            required: ["html"]
+        };
+
+        const prompt = `Generate a clean, professional, ATS-friendly resume in HTML format using the following inputs:
+
+          Resume: ${resume}
+          Self Description: ${selfDescription}
+          Job Description: ${jobDescription}
+
+          ---
+
+          ### OUTPUT FORMAT (STRICT):
+
+          Return ONLY a valid JSON object:
+          {
+            "html": "<!DOCTYPE html> ...complete resume HTML..."
+          }
+
+          - Do NOT include any explanation or extra text
+          - Ensure JSON is valid and properly escaped
+
+          ---
+
+          ### STRICT DATA RULES (VERY IMPORTANT):
+
+          - Use ONLY the data provided in "Resume"
+          - DO NOT generate or assume any missing personal details (name, email, phone, links)
+          - DO NOT create fake or random data
+          - If any field is missing, skip it
+          - Do NOT modify existing data
+
+          ---
+
+          ### RESUME REQUIREMENTS:
+
+          - ATS-friendly, single-column layout
+          - No tables, images, icons, or complex design
+          - Use only basic HTML tags:
+            <div>, <h1>, <h2>, <h3>, <p>, <ul>, <li>, <strong>, <hr>
+          - Use <hr> to separate sections
+          - Section titles must be in ALL CAPS
+          - Keep layout clean and readable (Puppeteer-friendly)
+
+          ---
+
+          ### STRUCTURE (STRICT ORDER):
+
+          1. Full Name (from Resume only)
+          2. Contact Line: Location | Phone | Email | LinkedIn | GitHub
+          3. PROFESSIONAL SUMMARY
+            - Use Self Description
+            - Tailor slightly based on Job Description
+          4. TECHNICAL SKILLS (grouped categories)
+          5. WORK EXPERIENCE (latest first)
+            - Role, Company, Duration
+            - Bullet points with action verbs
+          6. PROJECTS
+            - Name, description, tech stack
+          7. EDUCATION
+          8. CERTIFICATIONS / ACHIEVEMENTS (if available)
+
+          ---
+
+          ### CONTENT GUIDELINES:
+
+          - Use strong action verbs (Developed, Analyzed, Optimized)
+          - Include measurable impact ONLY if present in Resume
+          - Align skills and summary with Job Description
+          - Keep concise, professional, and relevant
+          - Avoid repetition and filler words
+
+          ---
+
+          Generate the final response now.
+          `;
+
+        const response = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: resumePdfSchema 
+            }
+        });
+
+        const result = response.response.text(); 
+        const jsonContent = JSON.parse(result);
+
+        if (!jsonContent || !jsonContent.html || jsonContent.html.length < 100) {
+            throw new Error("AI failed to generate a complete HTML content.");
+        }
+
+        const pdfBuffer = await generatePdfFromHtml(jsonContent.html);
+        
+        return pdfBuffer;
+        
+    } catch (error) {
+        console.error("AI Resume Generation Error:", error);
+        throw error;
+    }
+};
+
 
 export default generateInterviewReport;
